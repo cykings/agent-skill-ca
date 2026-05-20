@@ -1,5 +1,7 @@
 <div align="center">
 
+**简体中文** · [English](README.en.md)
+
 # 🔍 `/ca` — 代币合约情报速查 skill
 
 **一分钟看懂一个代币** — `gmgn 链上数据` + `bankr 元数据` + `X 推文素材` + `LLM 提炼` = 一份精简中文情报报告

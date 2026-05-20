@@ -1,5 +1,7 @@
 # 📲 Telegram bot 推送（可选模块）
 
+**简体中文** · [English](README.en.md)
+
 把 `/ca` 功能搬到 Telegram。**直接在 TG 群里发合约地址，bot 自动返回完整情报报告**。
 
 跟主目录的 `/ca` skill 共用同一个 `analyze.py`，没有任何代码重复。
