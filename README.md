@@ -141,6 +141,36 @@ python claim_history.py 0x4c433f4ef87fe506a7eed2fd1d822cbed411eba3 --lookback 30
 
 ---
 
+## 📲 可选模块：Telegram bot 推送
+
+把 `/ca` 功能搬到 Telegram —— **在群里直接发合约地址，bot 自动返回完整情报报告**。
+
+```
+你: 0x38298138dd4389013962d8492feaa5879408dba3
+bot: (~15s 后)
+  $openhuman | MC $1.9M | 24h +363% | ... 完整中文报告
+```
+
+特性：
+- 🛡️ **白名单**：只在指定群/私聊响应，防滥用
+- 💾 **缓存**：同一 CA 5 分钟内重复查询走缓存，省 API 钱
+- 🚦 **限速**：每用户每分钟最多 5 次
+- 📊 **`/stats`** 看 24h 查询统计
+- 📏 自动拆分超 Telegram 4096 字符的长消息
+
+复用主 bundle 里的 `analyze.py`，不重复代码。详细 setup 见 [`tg-bot/README.md`](tg-bot/README.md)。
+
+简版 4 步：
+```bash
+cd tg-bot
+pip install -r requirements.txt              # 装 python-telegram-bot
+cp config.example.py config.py                # 复制配置
+# 编辑 config.py 填 BOT_TOKEN 和 ALLOWED_CHAT_IDS
+python bot.py
+```
+
+---
+
 ## 工作原理（脚本数据流）
 
 1. **gmgn-cli 嗅探链 + 拿基础数据**：subprocess 调用，得到 symbol / MC / 24h / top10 / 风险评分
@@ -159,12 +189,21 @@ python claim_history.py 0x4c433f4ef87fe506a7eed2fd1d822cbed411eba3 --lookback 30
 ```
 ca-skill-bundle/
 ├── README.md              # 本文件
-├── install.py             # 一键安装脚本
+├── LICENSE                # MIT License
+├── install.py             # 一键安装脚本(给 AI 工具装 skill)
 ├── SKILL.template.md      # skill 模板(install 时把 {{SKILL_DIR}} 替换成绝对路径)
 ├── analyze.py             # 主分析脚本(1100+ 行 Python)
 ├── claim_history.py       # 独立工具:查 fee claim 时间表
 ├── requirements.txt       # Python 依赖(requests + python-dotenv)
-└── .env.example           # API key 模板
+├── .env.example           # API key 模板
+└── tg-bot/                # 可选模块: Telegram bot 推送
+    ├── README.md          # tg-bot 专属教程
+    ├── bot.py             # 入口
+    ├── config.example.py  # 配置模板(git 跟踪)
+    ├── handlers.py        # 消息处理 + CA 识别
+    ├── cache.py           # SQLite 缓存
+    ├── requirements.txt   # python-telegram-bot 依赖
+    └── start.bat          # Windows 双击启动
 ```
 
 ---

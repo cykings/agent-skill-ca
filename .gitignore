@@ -17,6 +17,9 @@ ca_cache.db
 *.sqlite
 *.sqlite3
 
+# tg-bot 实际配置(含 BOT_TOKEN, 必须忽略)
+tg-bot/config.py
+
 # 本地测试
 _dryrun_test.py
 test_*.py
