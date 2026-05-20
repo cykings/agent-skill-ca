@@ -172,10 +172,11 @@ class TwitterAPI:
 
 # ---------- 主类 ----------
 class CaAnalyzer:
-    def __init__(self, address: str, deep: bool = False, forced_chain: str = None):
+    def __init__(self, address: str, deep: bool = False, forced_chain: str = None, lang: str = "zh"):
         self.address = address.strip()
         self.deep = deep
         self.forced_chain = forced_chain
+        self.lang = lang  # "zh" (default,中文报告) | "en" (英文报告)
         self.chain = None
         self.token = None
         self.website_text = ""
@@ -920,6 +921,42 @@ class CaAnalyzer:
             "**输出前自检**：扫一遍整篇报告，搜索是否有 '按规则'、'不列'、'但无'、'粉丝<'、'thesis 原文未'、'勉强'、'纯回顾'、'纯数据陈述' 等词，**有任何一个出现就重写那一段**，把对应内容整条删除。\n"
             "报告必须前后一致：列了 = 它符合规则；说'无' = 后面不再出现任何相关内容。"
         )
+
+        # 🌐 LANGUAGE OVERRIDE — highest priority, applied last so it wins
+        # 如果 self.lang == "en",在 prompt 末尾追加一段"全英文输出"指令,
+        # 覆盖上面所有中文输出规则(LLM 通常按最后/最强的语言指令来)
+        if self.lang == "en":
+            en_override = """
+
+# 🌐 LANGUAGE OVERRIDE (HIGHEST PRIORITY — overrides all Chinese language rules above)
+
+**Output the entire report in ENGLISH.** This includes:
+- All section titles (e.g. "Core Narrative", "What the official account is saying", "Narrative Timeline", "Key KOLs", "Risk Signals")
+- All narrative text, descriptions, and analysis
+- All emoji tags (📈 / 🚨 / etc.) keep as-is
+- All proper nouns keep original: $SYMBOL / @handle / CA addresses / project names
+
+**Inverted rule for foreign-language quotes**: when the source material is in Chinese, translate it to English and append the Chinese original in parentheses for verification, e.g.:
+- ✅ Correct: `Official says "every country team coin uses 50% of creation fees to buy and burn $WORLDCUP" (原文: 每枚国家队币的 50% 创建费用于买入并销毁 $WORLDCUP)`
+- ❌ Wrong: dumping Chinese without translation
+
+**The "禁用模板话" rule in Chinese above inverts to**: don't use generic English templates like "ties into XX culture", "high risk high reward", "early CTO", "community-driven", "viral spread", "watch for breakout".
+
+**Section titles to use (exact English wording)**:
+- Core Narrative
+- What the official account is saying
+- Narrative Timeline
+- Key KOLs (with subsections: Bearish KOLs / Narrative-driving KOLs)
+- Risk Signals
+"""
+            user_prompt += en_override
+            system_msg += (
+                "\n\n# OUTPUT LANGUAGE: ENGLISH "
+                "(this overrides the Chinese-language rules in the user prompt below. "
+                "The entire report — section titles, narrative, quotes — must be in English. "
+                "Translate Chinese source quotes to English with the original appended in parentheses.)"
+            )
+
         return system_msg, user_prompt
 
     def _call_grok(self, key, system_msg, user_prompt):
@@ -1227,17 +1264,26 @@ Moderators 列表（{len(mods_compact)} 人）：
                 # 显示:有 X 用 @handle,没 X 用钱包短地址
                 dep_disp = f"@{dep_x}" if dep_x else f"`{dep_w[:6]}..{dep_w[-4:]}`"
                 fee_disp = f"@{fee_x}" if fee_x else f"`{fee_w[:6]}..{fee_w[-4:]}`"
-                if same_wallet:
-                    mode = "🟢 dev 自发"
+                catch_target = f"@{fee_x}" if fee_x else fee_disp
+                if self.lang == "en":
+                    if same_wallet:
+                        mode = "🟢 dev self-deployed"
+                    else:
+                        mode = f"🟡 community-deployed → betting on {catch_target} to claim"
                 else:
-                    catch_target = f"@{fee_x}" if fee_x else fee_disp
-                    mode = f"🟡 社区代发 → 赌 {catch_target} 认领"
+                    if same_wallet:
+                        mode = "🟢 dev 自发"
+                    else:
+                        mode = f"🟡 社区代发 → 赌 {catch_target} 认领"
                 bankr_line = f"📡 Bankr | deployer:{dep_disp} → feeRecipient:{fee_disp} | {mode}"
 
             # fee 状态行
             fs = self._extract_fee_stats()
             if fs:
-                fee_line = f"💸 Fee | 已 claim {fs['count']} 次 / 已领 {fs['claimed_weth']:.3f} WETH / 未领 {fs['claimable_weth']:.3f} WETH"
+                if self.lang == "en":
+                    fee_line = f"💸 Fee | claimed {fs['count']} times / claimed {fs['claimed_weth']:.3f} WETH / unclaimed {fs['claimable_weth']:.3f} WETH"
+                else:
+                    fee_line = f"💸 Fee | 已 claim {fs['count']} 次 / 已领 {fs['claimed_weth']:.3f} WETH / 未领 {fs['claimable_weth']:.3f} WETH"
 
         lines = [head, meta]
         if bankr_line:
@@ -1316,6 +1362,8 @@ def main():
                         help="LLM 后端 (默认 deepseek)")
     parser.add_argument("--deep", action="store_true", help="深度模式（deepseek-reasoner / grok-4）")
     parser.add_argument("--chain", choices=["sol", "bsc", "base", "eth"], help="手动指定链")
+    parser.add_argument("--lang", choices=["zh", "en"], default="zh",
+                        help="输出语言 (zh=中文默认 / en=英文)")
     args = parser.parse_args()
 
     try:
@@ -1324,7 +1372,7 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
-    analyzer = CaAnalyzer(args.address, deep=args.deep, forced_chain=args.chain)
+    analyzer = CaAnalyzer(args.address, deep=args.deep, forced_chain=args.chain, lang=args.lang)
 
     try:
         analyzer.detect_chain()

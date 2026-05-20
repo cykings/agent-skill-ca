@@ -120,6 +120,7 @@ $ca 0x38298138dd4389013962d8492feaa5879408dba3
 | `--llm grok` | grok-4-fast | ~$0.05 |
 | `--llm grok --deep` | grok-4 | ~$0.15 |
 | `--chain bsc\|base\|eth\|sol` | 手动指定链，跳过自动嗅探 | — |
+| `--lang en` | **英文报告**（默认中文）。会切换所有 section 标题、叙事文本到英文；中文素材引用保留括号原文 | — |
 
 ---
 

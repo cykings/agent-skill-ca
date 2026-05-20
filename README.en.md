@@ -24,7 +24,7 @@
 
 **🤝 Compatible tools**: [Claude Code](https://claude.com/code) · [OpenClaw](https://github.com/openclaw/openclaw) · [OpenAI Codex CLI](https://github.com/openai/codex) (and theoretically any tool that supports the [Agent Skills open standard](https://agentskills.io) — 40+ AI tools)
 
-> ⚠️ **Note on language**: The default LLM (DeepSeek) outputs reports in **Chinese**. The skill is most useful if you can read Chinese, OR if you pipe the output to a translation tool. To get English output, you can edit the LLM prompt in `analyze.py` (search for the `_build_prompt` method) and change the language instructions.
+> 🌐 **English output supported**: pass `--lang en` to get the report in English. Default is Chinese. Section titles, narrative text, KOL quotes all switch to English; Chinese source quotes are translated and the original is kept in parentheses for verification.
 
 </div>
 
@@ -122,6 +122,7 @@ $ca 0x38298138dd4389013962d8492feaa5879408dba3
 | `--llm grok` | grok-4-fast | ~$0.05 |
 | `--llm grok --deep` | grok-4 | ~$0.15 |
 | `--chain bsc\|base\|eth\|sol` | force chain (skip auto-detection) | — |
+| `--lang en` | **English report** (default is Chinese). Switches section titles, narrative, KOL quotes to English; Chinese source quotes are translated with the original preserved in parentheses | — |
 
 ---
 
@@ -277,7 +278,7 @@ A: No. The three tools read different directories and don't interfere. Pick `4` 
 A: Edit `SKILL.template.md` (use `{{SKILL_DIR}}` as the placeholder), then re-run `install.py`.
 
 **Q: How do I make the LLM output English instead of Chinese?**
-A: Open `analyze.py`, search for the `_build_prompt` method. The Chinese language directives are explicitly inline — change them to English instructions and rebuild. (We may add a `--lang en` flag in a future PR. Issue welcome.)
+A: Just pass `--lang en`. Example: `/ca 0xabc... --lang en` or `python analyze.py 0xabc... --lang en`. The flag switches all section titles, narrative text, and KOL quotes to English; Chinese source material is translated and the original is preserved in parentheses for verification.
 
 ---
 
