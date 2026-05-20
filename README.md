@@ -171,6 +171,49 @@ python bot.py
 
 ---
 
+## 🏗️ 整体架构
+
+三个触发入口，共用同一个核心引擎：
+
+```
+         ┌──────────────────────────────────────────────┐
+         │     analyze.py (核心引擎, ~1100 行 Python)    │
+         │                                              │
+         │   gmgn + 官网 + 6551 + bankr + LLM           │
+         │              └──► 中文情报报告 (stdout)      │
+         └──────▲─────────────▲─────────────▲───────────┘
+                │             │             │
+        ┌───────┴────┐ ┌──────┴──────┐ ┌────┴────────┐
+        │ 🤖 AI 工具  │ │ 🐍 命令行    │ │ 📱 Telegram  │
+        │  /ca <CA>  │ │ python ...  │ │  群里发 CA   │
+        └────────────┘ └─────────────┘ └─────────────┘
+        SKILL.md +     直接 subprocess  tg-bot/bot.py
+        install.py                     +cache+限速+log
+```
+
+**三种用法对应的文件**：
+
+| 触发入口 | 用哪些文件 | 谁负责把"用户输入"转成"调用 analyze.py" |
+|---|---|---|
+| AI 工具（Claude Code / OpenClaw / Codex CLI） | `SKILL.template.md` + `install.py` | AI 自己读 SKILL.md 后用 Bash 工具调 |
+| 直接命令行 | 仅 `analyze.py` | 你自己手敲 |
+| Telegram 群/私聊 | `tg-bot/` 目录 | `tg-bot/bot.py` subprocess 调，带缓存和限速 |
+
+**关键设计**：
+
+- ✅ **核心逻辑只有一份**：升级 `analyze.py` 一次，三种用法全部跟着升级
+- ✅ **数据源 API key 集中管理**：`~/.config/gmgn/.env` 一处搞定（gmgn / DeepSeek / OpenTwitter / twitterapi.io / Grok）
+- ✅ **tg-bot 独立配置**：`tg-bot/config.py` 单独管 Telegram 相关（BOT_TOKEN / 白名单），跟数据源 key 解耦——这样泄露 BOT_TOKEN 不会影响数据 key，反之亦然
+- ✅ **完全本地化**：数据流只走 `你本地 ↔ 数据源`，不经过任何第三方中转服务器
+
+**数据流共享细节**：
+
+`tg-bot/bot.py` 里的 `subprocess.run([config.PYTHON_EXE, config.ANALYZE_PY, ca])` 调的就是上一级 `../analyze.py`。所以：
+- 你想给报告加个新字段 → 只改 `analyze.py` 一处
+- 三个 AI 工具 + 命令行 + Telegram bot **当场全部享受新字段**，不需要单独 push tg-bot 更新
+
+---
+
 ## 工作原理（脚本数据流）
 
 1. **gmgn-cli 嗅探链 + 拿基础数据**：subprocess 调用，得到 symbol / MC / 24h / top10 / 风险评分
