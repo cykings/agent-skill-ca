@@ -1,14 +1,28 @@
-# /ca — 代币合约情报速查 skill
+<div align="center">
 
-跨平台 Agent Skill。输入一个代币 CA，一分钟内拿到一份精简的中文情报报告：核心叙事 + 官方账号在说什么 + 叙事演变时间线 + 关键 KOL（含反向砸盘信号） + Bankr 部署元数据 + Fee claim 状态 + 风险信号。
+# 🔍 `/ca` — 代币合约情报速查 skill
 
-**支持链**：Solana / BSC / Base / ETH（自动嗅探）
+**一分钟看懂一个代币** — `gmgn 链上数据` + `bankr 元数据` + `X 推文素材` + `LLM 提炼` = 一份精简中文情报报告
 
-**支持的 AI 工具**：
-- ✅ [Claude Code](https://claude.com/code)
-- ✅ [OpenClaw](https://github.com/openclaw/openclaw)
-- ✅ [OpenAI Codex CLI](https://github.com/openai/codex)
-- 理论上兼容所有支持 [Agent Skills 标准](https://agentskills.io) 的工具
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/) [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-Standard-purple.svg)](https://agentskills.io) [![Chains](https://img.shields.io/badge/Chains-SOL%20·%20BSC%20·%20BASE%20·%20ETH-green.svg)]() [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)]()
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  📥  你: /ca 0x38298138dd4389013962d8492feaa5879408dba3   │
+│                                                          │
+│  ⚙️   gmgn ──┐                                            │
+│       6551 ──┼─► LLM 提炼 ─► 中文叙事报告(~15s)            │
+│       bankr ─┘                                           │
+│                                                          │
+│  📤  $openhuman │ MC $1.9M │ 24h +363% │ 7 个分析维度    │
+└──────────────────────────────────────────────────────────┘
+```
+
+**🔗 支持链**: Solana · BSC · Base · ETH（自动嗅探）
+
+**🤝 兼容工具**: [Claude Code](https://claude.com/code) · [OpenClaw](https://github.com/openclaw/openclaw) · [OpenAI Codex CLI](https://github.com/openai/codex)（理论上兼容所有支持 [Agent Skills 开放标准](https://agentskills.io) 的 40+ AI 工具）
+
+</div>
 
 ---
 
@@ -179,8 +193,20 @@ A: 改 `SKILL.template.md`（用 `{{SKILL_DIR}}` 占位符），重跑 `install.
 
 ## 致谢与许可
 
-数据源：[gmgn.ai](https://gmgn.ai) / [bankr.bot](https://bankr.bot) / [6551 OpenTwitter](https://6551.io) / [twitterapi.io](https://twitterapi.io) / [DeepSeek](https://platform.deepseek.com) / [xAI Grok](https://x.ai)
+**数据源**：[gmgn.ai](https://gmgn.ai) · [bankr.bot](https://bankr.bot) · [6551 OpenTwitter](https://6551.io) · [twitterapi.io](https://twitterapi.io) · [DeepSeek](https://platform.deepseek.com) · [xAI Grok](https://x.ai)
 
-标准：[Agent Skills (agentskills.io)](https://agentskills.io)，开放标准，Anthropic 主导。
+**标准**：基于 [Agent Skills](https://agentskills.io) 开放标准（Anthropic 主导，40+ AI 工具支持）。
 
-本 skill 不附带任何 API key —— 所有 key 你自己申请，所有数据流不经过我们的服务器。
+**许可**：[MIT License](LICENSE) —— 自由 fork / 修改 / 商用，保留版权声明即可。
+
+**隐私**：本 skill **不附带任何 API key**——所有 key 你自己申请，所有数据流不经过任何第三方中转服务器，只在你本地 ↔ 数据源直接走。
+
+---
+
+<div align="center">
+
+如果对你有帮助，给个 ⭐ Star 让更多人能找到它 🙏
+
+[报 bug](https://github.com/cykings/agent-skill-ca/issues) · [提需求](https://github.com/cykings/agent-skill-ca/issues) · [Fork 改造](https://github.com/cykings/agent-skill-ca/fork)
+
+</div>
