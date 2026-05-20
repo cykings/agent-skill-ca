@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# API keys (千万不要泄露)
+.env
+.env.local
+*.env
+
+# tg-ca-bot / claim_history.py 缓存
+ca_cache.db
+*.db
+*.sqlite
+*.sqlite3
+
+# 本地测试
+_dryrun_test.py
+test_*.py
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
