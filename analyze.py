@@ -154,6 +154,13 @@ class TwitterAPI:
                 break
         return all_tweets
 
+    def user_info(self, username: str):
+        # 拿用户 bio / 粉丝数 / 验证状态 / 创建时间(用于 fee 接收者身份说明)
+        d = self._get("/twitter/user/info", {"userName": username})
+        if not d:
+            return None
+        return d.get("data") or d
+
     def user_last_tweets(self, username: str, limit: int = 20):
         """反查某用户的最近推文（用于 mods 的项目方声音）"""
         d = self._get("/twitter/user/last_tweets", {"userName": username})
@@ -184,6 +191,7 @@ class CaAnalyzer:
         self.stat_eval = None
         self.bankr_launch = None  # bankr.bot /token-launches/{ca} 返回的 launch 对象
         self.bankr_fees = None    # bankr.bot /token-launches/{ca}/fees 返回 claim 状态
+        self.fee_recipient_profile = None  # 社区代发时,fee 接收者的 X 资料 + 最近推文
 
     # ---------- 链嗅探 ----------
     def detect_chain(self):
@@ -298,6 +306,42 @@ class CaAnalyzer:
             logger.info(f"📡 bankr: deployer=@{dep_x or '(无X)'} → feeRecipient=@{fee_x or '(无X)'} | {mode}")
         except Exception as e:
             logger.warning(f"📡 bankr 异常: {e}")
+
+    def fetch_fee_recipient_profile(self, tw_io_key):
+        # 仅在"社区代发 + fee 接收者关联了 X handle"时,抓 ta 的资料 + 最近推文
+        # 让 LLM 在核心叙事里说清楚 "@feeRecipient 是谁,做了什么产品,为什么被发币"
+        if not tw_io_key or self.chain != "base" or not self.bankr_launch:
+            return
+        fee_obj = self.bankr_launch.get("feeRecipient") or {}
+        dep_obj = self.bankr_launch.get("deployer") or {}
+        dep_w = (dep_obj.get("walletAddress") or "").lower()
+        fee_w = (fee_obj.get("walletAddress") or "").lower()
+        fee_x = fee_obj.get("xUsername")
+        # 钱包不同(社区代发) + 有 X handle 才拉
+        if not (fee_x and dep_w and fee_w and dep_w != fee_w):
+            return
+        try:
+            api = TwitterAPI(tw_io_key)
+            logger.info(f"🎭 抓 fee 接收者 @{fee_x} 的资料 + 推文...")
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_info = ex.submit(api.user_info, fee_x)
+                f_tw = ex.submit(api.user_last_tweets, fee_x, 20)
+                info = f_info.result(timeout=20)
+                tweets = f_tw.result(timeout=20)
+            self.fee_recipient_profile = {
+                "handle": fee_x,
+                "info": info or {},
+                "tweets": tweets or [],
+            }
+            logger.info(f"✅ fee profile: @{fee_x} bio={bool((info or {}).get('description'))} tweets={len(tweets or [])}")
+        except Exception as e:
+            logger.warning(f"🎭 fee profile 抓取失败: {e}")
+
+    def fetch_bankr_with_profile(self, tw_io_key):
+        # 串联: 先拿 launch (拿到 fee handle) → 再拿 fee 接收者的 X 资料
+        # 设计成串行因为 profile 依赖 launch 的 feeRecipient.xUsername
+        self.fetch_bankr_launch()
+        self.fetch_fee_recipient_profile(tw_io_key)
 
     def fetch_bankr_fees(self):
         # 拉 fee claim 状态(累计已领/未领次数+WETH 数量);只对 base 有效
@@ -1042,6 +1086,62 @@ class CaAnalyzer:
                 f"**重点核查**：{fee_display} 是否公开回应/认领/沉默/拉黑？这是该代币的最关键信号。"
             )
 
+        # fee 接收者身份块(仅社区代发 + 拉到了 X 资料时填充)
+        fee_profile_block = ""
+        if self.fee_recipient_profile:
+            p = self.fee_recipient_profile
+            handle = p["handle"]
+            info = p["info"] or {}
+            tweets = p["tweets"] or []
+            # 压缩 info: 保留判断身份关键字段
+            info_compact = {
+                "name": info.get("name"),
+                "screenName": info.get("userName") or info.get("screen_name"),
+                "bio": info.get("description"),
+                "followers": info.get("followers") or info.get("followersCount"),
+                "following": info.get("following") or info.get("followingCount"),
+                "verified": info.get("isBlueVerified") or info.get("verified"),
+                "createdAt": info.get("createdAt"),
+                "location": info.get("location"),
+                "url": info.get("url") or info.get("website"),
+                "tweetsCount": info.get("statusesCount") or info.get("tweetsCount"),
+            }
+            # 压缩 tweets: 仅保留文本 + 时间 + 互动数,过滤 RT
+            tweets_compact = []
+            for t in tweets:
+                text = (t.get("text") or "")
+                if text.startswith("RT @"):
+                    continue
+                tweets_compact.append({
+                    "date": _to_cst_str(t.get("createdAt", "")),
+                    "text": text[:500],
+                    "likes": t.get("likeCount"),
+                    "views": t.get("viewCount"),
+                })
+                if len(tweets_compact) >= 15:
+                    break
+            fee_profile_block = f"""
+
+# 素材 13: Fee 接收者 @{handle} 的身份 ⭐⭐⭐⭐
+**这是社区代发场景下"为什么有人给 ta 发币"的核心解释**——通常是 ta 做了某个产品 / 项目 / 工具,bankr 用户单方面把 fee 路由到 ta 钱包等 ta 来认领。
+
+@{handle} 的 X 资料:
+```json
+{json.dumps(info_compact, ensure_ascii=False, indent=2)}
+```
+
+@{handle} 最近 15 条原创推文(揭示 ta 在做什么):
+```json
+{json.dumps(tweets_compact, ensure_ascii=False, indent=2)}
+```
+
+⚠️ 输出时,**在"核心叙事"板块必须**:
+1. 用 1-2 句说清楚 @{handle} 是谁(身份/职业/团队)
+2. 说清楚 ta 做了什么具体产品/项目/工具(从 bio + 推文里提炼)
+3. 指出"为什么有人给 ta 发币"的逻辑关联(产品热度 / 知名度 / 影响力)
+4. 如果 bio + 推文都看不出 ta 在做什么(空账号 / 沉默几个月),也直接说出来——这本身就是关键风险信号
+"""
+
         # fee 状态(若 /fees endpoint 也拉到了)
         fee_status_block = ""
         fs = self._extract_fee_stats()
@@ -1071,8 +1171,9 @@ class CaAnalyzer:
 {fee_status_block}
 ⚠️ 输出时:
 - 在"核心叙事"里**明确点出**这是 dev 自发还是社区代发(若是社区代发,必须指出 @{fee_name} 是否认领)。
+- 如是社区代发,**还要结合素材 13 (fee 接收者身份)说清楚 ta 是谁、做了什么产品**(这是社区代发场景下叙事的核心)。
 - 如是社区代发,在"风险信号"里必列一条:fee 接收者 @{fee_name} 的态度(从素材 3/6/7 里找他的相关推文反应,结合 claim 次数对照看)。
-"""
+{fee_profile_block}"""
 
     # ---------- community 素材块（仅当有 community 时使用） ----------
     def _build_community_blocks(self, info, mods, mod_tweets, community_top):
@@ -1389,7 +1490,8 @@ def main():
         f_web = ex.submit(analyzer.fetch_website)
         f_tw = ex.submit(analyzer.fetch_opentwitter, ot_token)
         f_cm = ex.submit(analyzer.fetch_community, tw_io_key)
-        f_bk = ex.submit(analyzer.fetch_bankr_launch)
+        # bankr launch + fee 接收者 X 资料(串行,后者依赖前者拿到 handle)
+        f_bk = ex.submit(analyzer.fetch_bankr_with_profile, tw_io_key)
         f_bf = ex.submit(analyzer.fetch_bankr_fees)
         f_web.result()
         f_tw.result()
